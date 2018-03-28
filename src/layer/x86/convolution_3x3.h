@@ -11,9 +11,13 @@
 // under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
 // CONDITIONS OF ANY KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations under the License.
+#include <time.h>
+#include <stdio.h>
 
 static void conv3x3s1_sse(const Mat& bottom_blob, Mat& top_blob, const Mat& _kernel, const Mat& _bias)
 {
+    time_t st, ed;
+    st = time(NULL);
     int w = bottom_blob.w;
     int inch = bottom_blob.c;
 
@@ -136,5 +140,7 @@ static void conv3x3s1_sse(const Mat& bottom_blob, Mat& top_blob, const Mat& _ker
 
         }
     }
+    ed = time(NULL);
+    printf("conv3x3s1: %ld\n", ed-st);
 
 }
