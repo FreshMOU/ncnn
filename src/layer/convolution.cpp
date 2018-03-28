@@ -13,7 +13,7 @@
 // specific language governing permissions and limitations under the License.
 
 #include "convolution.h"
-
+#include <time.h>
 #include "layer_type.h"
 
 namespace ncnn {
@@ -64,6 +64,9 @@ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob) const
     // convolv with NxN kernel
     // value = value + bias
 
+    //fprintf(stderr, "\nw: %d, h: %d, c:%d , kernel_w: %d, kernel_h: %d\n", bottom_blob.w, bottom_blob.h, bottom_blob.c, kernel_w, kernel_h);
+    time_t st, ed;
+    st = time(NULL);
     // flattened blob, implement as InnerProduct
     if (bottom_blob.dims == 1 && kernel_w == 1 && kernel_h == 1)
     {
@@ -101,7 +104,7 @@ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob) const
     int h = bottom_blob.h;
     int channels = bottom_blob.c;
 
-//     fprintf(stderr, "Convolution input %d x %d  pad = %d %d  ksize=%d %d  stride=%d %d\n", w, h, pad_w, pad_h, kernel_w, kernel_h, stride_w, stride_h);
+    //fprintf(stderr, "Convolution input %d x %d  pad = %d %d  ksize=%d %d  stride=%d %d\n", w, h, pad_w, pad_h, kernel_w, kernel_h, stride_w, stride_h);
 
     const int kernel_extent_w = dilation_w * (kernel_w - 1) + 1;
     const int kernel_extent_h = dilation_h * (kernel_h - 1) + 1;
@@ -115,6 +118,7 @@ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob) const
 
         w = bottom_blob_bordered.w;
         h = bottom_blob_bordered.h;
+        //fprintf(stderr, "inw %d, inh %d",w,h);
     }
     else if (pad_w == -233 && pad_h == -233)
     {
@@ -133,8 +137,10 @@ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob) const
 
     int outw = (w - kernel_extent_w) / stride_w + 1;
     int outh = (h - kernel_extent_h) / stride_h + 1;
+    //fprintf(stderr, "w: %d, h: %d, ker_w: %d, ker_h: %d, stride_w: %d, stride_h: %d\n", w,h,kernel_extent_w, kernel_extent_h, stride_w, stride_h);
 
     top_blob.create(outw, outh, num_output);
+    //fprintf(stderr, "outw: %d, outh: %d, output: %d\n", outw, outh, num_output);
     if (top_blob.empty())
         return -100;
 
@@ -198,7 +204,8 @@ int Convolution::forward(const Mat& bottom_blob, Mat& top_blob) const
             outptr += outw;
         }
     }
-
+    ed = time(NULL);
+    fprintf(stderr, "rectangle: %ld\n", ed-st);
     return 0;
 }
 

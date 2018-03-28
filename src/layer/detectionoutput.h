@@ -34,6 +34,9 @@ public:
     int nms_top_k;
     int keep_top_k;
     float confidence_threshold;
+    int use_polygon;
+    int share_location;
+    int num_class_;
 };
 
 } // namespace ncnn

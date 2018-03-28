@@ -15,6 +15,7 @@
 #include "detectionoutput.h"
 #include <algorithm>
 #include <math.h>
+#include <map>
 
 namespace ncnn {
 
@@ -33,6 +34,7 @@ int DetectionOutput::load_param(const ParamDict& pd)
     nms_top_k = pd.get(2, 300);
     keep_top_k = pd.get(3, 100);
     confidence_threshold = pd.get(4, 0.5f);
+    use_polygon = pd.get(5, 0);
 
     return 0;
 }
@@ -44,6 +46,19 @@ struct BBoxRect
     float xmax;
     float ymax;
     int label;
+    int indice;
+};
+
+struct PolygonRect
+{
+    float x1;
+    float y1;
+    float x2;
+    float y2;
+    float x3;
+    float y3;
+    float x4;
+    float y4;
 };
 
 static inline float intersection_area(const BBoxRect& a, const BBoxRect& b)
@@ -148,41 +163,87 @@ int DetectionOutput::forward(const std::vector<Mat>& bottom_blobs, std::vector<M
     const Mat& priorbox = bottom_blobs[2];
 
     const int num_prior = priorbox.w / 4;
+    fprintf(stderr, "\n location = %d  %d  %d \n", location.w, location.h, location.c);
+    std::vector<PolygonRect> all_loc_preds_polygon;
+    all_loc_preds_polygon.resize(num_prior);
 
     // apply location with priorbox
     Mat bboxes;
-    bboxes.create(4, num_prior);
+    bboxes.create(4, num_prior);        //初始化bboxes
     if (bboxes.empty())
         return -100;
 
     const float* location_ptr = location;
     const float* priorbox_ptr = priorbox.row(0);
     const float* variance_ptr = priorbox.row(1);
-
-    #pragma omp parallel for
-    for (int i = 0; i < num_prior; i++)
+    
+    //计算得到最后要输出的框
+    if (use_polygon)
     {
-        const float* loc = location_ptr + i * 4;
-        const float* pb = priorbox_ptr + i * 4;
-        const float* var = variance_ptr + i * 4;
+        #pragma omp parallel for
+        for (int i = 0; i < num_prior; i++)
+        {
+            const float* loc = location_ptr + i * 12;
+            const float* pb = priorbox_ptr + i * 4;
+            const float* var = variance_ptr + i * 4;
 
-        float* bbox = bboxes.row(i);
+            float* bbox = bboxes.row(i);
 
-        // CENTER_SIZE
-        float pb_w = pb[2] - pb[0];
-        float pb_h = pb[3] - pb[1];
-        float pb_cx = (pb[0] + pb[2]) * 0.5f;
-        float pb_cy = (pb[1] + pb[3]) * 0.5f;
+            // CENTER_SIZE
+            float pb_w = pb[2] - pb[0];
+            float pb_h = pb[3] - pb[1];
+            float pb_cx = (pb[0] + pb[2]) * 0.5f;
+            float pb_cy = (pb[1] + pb[3]) * 0.5f;
 
-        float bbox_cx = var[0] * loc[0] * pb_w + pb_cx;
-        float bbox_cy = var[1] * loc[1] * pb_h + pb_cy;
-        float bbox_w = exp(var[2] * loc[2]) * pb_w;
-        float bbox_h = exp(var[3] * loc[3]) * pb_h;
+            float bbox_cx = var[0] * loc[0] * pb_w + pb_cx;
+            float bbox_cy = var[1] * loc[1] * pb_h + pb_cy;
+            float bbox_w = exp(var[2] * loc[2]) * pb_w;
+            float bbox_h = exp(var[3] * loc[3]) * pb_h;
 
-        bbox[0] = bbox_cx - bbox_w * 0.5f;
-        bbox[1] = bbox_cy - bbox_h * 0.5f;
-        bbox[2] = bbox_cx + bbox_w * 0.5f;
-        bbox[3] = bbox_cy + bbox_h * 0.5f;
+            bbox[0] = bbox_cx - bbox_w * 0.5f;
+            bbox[1] = bbox_cy - bbox_h * 0.5f;
+            bbox[2] = bbox_cx + bbox_w * 0.5f;
+            bbox[3] = bbox_cy + bbox_h * 0.5f;
+                    
+            PolygonRect polygon;
+            polygon.x1 = var[0] * loc[4]  * pb_w + pb[0];
+            polygon.y1 = var[1] * loc[5]  * pb_h + pb[1];
+            polygon.x2 = var[0] * loc[6]  * pb_w + pb[2];
+            polygon.y2 = var[1] * loc[7]  * pb_h + pb[1];
+            polygon.x3 = var[0] * loc[8]  * pb_w + pb[2];
+            polygon.y3 = var[1] * loc[9]  * pb_h + pb[3];
+            polygon.x4 = var[0] * loc[10] * pb_w + pb[0];
+            polygon.y4 = var[1] * loc[11] * pb_h + pb[3];
+            all_loc_preds_polygon[i] = polygon;
+        }
+    }
+    else
+    {
+        #pragma omp parallel for
+        for (int i = 0; i < num_prior; i++)
+        {
+            const float* loc = location_ptr + i * 4;
+            const float* pb = priorbox_ptr + i * 4;
+            const float* var = variance_ptr + i * 4;
+
+            float* bbox = bboxes.row(i);
+
+            // CENTER_SIZE
+            float pb_w = pb[2] - pb[0];
+            float pb_h = pb[3] - pb[1];
+            float pb_cx = (pb[0] + pb[2]) * 0.5f;
+            float pb_cy = (pb[1] + pb[3]) * 0.5f;
+
+            float bbox_cx = var[0] * loc[0] * pb_w + pb_cx;
+            float bbox_cy = var[1] * loc[1] * pb_h + pb_cy;
+            float bbox_w = exp(var[2] * loc[2]) * pb_w;
+            float bbox_h = exp(var[3] * loc[3]) * pb_h;
+
+            bbox[0] = bbox_cx - bbox_w * 0.5f;
+            bbox[1] = bbox_cy - bbox_h * 0.5f;
+            bbox[2] = bbox_cx + bbox_w * 0.5f;
+            bbox[3] = bbox_cy + bbox_h * 0.5f;
+        }
     }
 
     // sort and nms for each class
@@ -206,7 +267,7 @@ int DetectionOutput::forward(const std::vector<Mat>& bottom_blobs, std::vector<M
             if (score > confidence_threshold)
             {
                 const float* bbox = bboxes.row(j);
-                BBoxRect c = { bbox[0], bbox[1], bbox[2], bbox[3], i };
+                BBoxRect c = { bbox[0], bbox[1], bbox[2], bbox[3], i, j };
                 class_bbox_rects.push_back(c);
                 class_bbox_scores.push_back(score);
             }
@@ -238,7 +299,6 @@ int DetectionOutput::forward(const std::vector<Mat>& bottom_blobs, std::vector<M
     // gather all class
     std::vector<BBoxRect> bbox_rects;
     std::vector<float> bbox_scores;
-
     for (int i = 0; i < num_class; i++)
     {
         const std::vector<BBoxRect>& class_bbox_rects = all_class_bbox_rects[i];
@@ -262,23 +322,57 @@ int DetectionOutput::forward(const std::vector<Mat>& bottom_blobs, std::vector<M
     int num_detected = bbox_rects.size();
 
     Mat& top_blob = top_blobs[0];
-    top_blob.create(6, num_detected);
+    
+    if (use_polygon)
+        top_blob.create(14, num_detected);
+    else
+        top_blob.create(6, num_detected);
     if (top_blob.empty())
         return -100;
 
-    for (int i = 0; i < num_detected; i++)
+    if (use_polygon)
     {
-        const BBoxRect& r = bbox_rects[i];
-        float score = bbox_scores[i];
-        float* outptr = top_blob.row(i);
+        for (int i = 0; i < num_detected; i++)
+        {
+            const BBoxRect& r = bbox_rects[i];
+            float score = bbox_scores[i];
+            float* outptr = top_blob.row(i);
+            int idx = r.indice;
+            const PolygonRect& pr = all_loc_preds_polygon[idx];
 
-        outptr[0] = r.label;
-        outptr[1] = score;
-        outptr[2] = r.xmin;
-        outptr[3] = r.ymin;
-        outptr[4] = r.xmax;
-        outptr[5] = r.ymax;
+            outptr[ 0 ] = r.label;
+            outptr[ 1 ] = score;
+            outptr[ 2 ] = r.xmin;
+            outptr[ 3 ] = r.ymin;
+            outptr[ 4 ] = r.xmax;
+            outptr[ 5 ] = r.ymax;
+            outptr[ 6 ] = pr.x1;
+            outptr[ 7 ] = pr.y1;
+            outptr[ 8 ] = pr.x2;
+            outptr[ 9 ] = pr.y2;
+            outptr[ 10] = pr.x3;
+            outptr[ 11] = pr.y3;
+            outptr[ 12] = pr.x4;
+            outptr[ 13] = pr.y4;
+        }
     }
+    else
+    {
+        for (int i = 0; i < num_detected; i++)
+        {
+            const BBoxRect& r = bbox_rects[i];
+            float score = bbox_scores[i];
+            float* outptr = top_blob.row(i);
+
+            outptr[0] = r.label;
+            outptr[1] = score;
+            outptr[2] = r.xmin;
+            outptr[3] = r.ymin;
+            outptr[4] = r.xmax;
+            outptr[5] = r.ymax;
+        }
+    }
+    
 
     return 0;
 }

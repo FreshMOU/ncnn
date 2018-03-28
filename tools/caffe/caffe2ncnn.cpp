@@ -488,7 +488,13 @@ int main(int argc, char** argv)
             {
                 fprintf(pp, " 3=%d", convolution_param.stride_size() != 0 ? convolution_param.stride(0) : 1);
             }
-            fprintf(pp, " 4=%d", convolution_param.pad_size() != 0 ? convolution_param.pad(0) : 0);
+            if (convolution_param.has_pad_w() && convolution_param.has_pad_h())
+            {
+                fprintf(pp, " 4=%d", convolution_param.pad_w());
+                fprintf(pp, " 14=%d", convolution_param.pad_h());
+            }
+            else
+                fprintf(pp, " 4=%d", convolution_param.pad_size() != 0 ? convolution_param.pad(0) : 0);
             fprintf(pp, " 5=%d", convolution_param.bias_term());
             fprintf(pp, " 6=%d", weight_blob.data_size());
 
@@ -634,6 +640,7 @@ int main(int argc, char** argv)
             fprintf(pp, " 2=%d", nms_param.top_k());
             fprintf(pp, " 3=%d", detection_output_param.keep_top_k());
             fprintf(pp, " 4=%f", detection_output_param.confidence_threshold());
+            fprintf(pp, " 5=%d", detection_output_param.use_polygon());
         }
         else if (layer.type() == "Dropout")
         {
@@ -985,6 +992,7 @@ int main(int argc, char** argv)
             fprintf(pp, " 11=%f", step_width);
             fprintf(pp, " 12=%f", step_height);
             fprintf(pp, " 13=%f", prior_box_param.offset());
+            fprintf(pp, " 14=%d", prior_box_param.denser_prior_boxes());
         }
         else if (layer.type() == "Python")
         {

@@ -42,6 +42,7 @@ int PriorBox::load_param(const ParamDict& pd)
     step_width = pd.get(11, -233.f);
     step_height = pd.get(12, -233.f);
     offset = pd.get(13, 0.f);
+    denser_prior_boxes = pd.get(14, 0);
 
     return 0;
 }
@@ -73,6 +74,9 @@ int PriorBox::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
     if (flip)
         num_prior += num_min_size * num_aspect_ratio;
 
+    if (denser_prior_boxes)
+        num_prior *= 2;
+
     Mat& top_blob = top_blobs[0];
     top_blob.create(4 * w * h * num_prior, 2);
 
@@ -83,6 +87,7 @@ int PriorBox::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
 
         float center_x = offset * step_w;
         float center_y = offset * step_h + i * step_h;
+        float center_offset_y = (i + 1.0) * step_h;
 
         for (int j = 0; j < w; j++)
         {
@@ -103,6 +108,16 @@ int PriorBox::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
 
                 box += 4;
 
+                if (denser_prior_boxes)
+                {
+                    box[0] = (center_x - box_w * 0.5f) / image_w;
+                    box[1] = (center_offset_y - box_h * 0.5f) / image_h;
+                    box[2] = (center_x + box_w * 0.5f) / image_w;
+                    box[3] = (center_offset_y + box_h * 0.5f) / image_h;
+
+                    box += 4;
+                }
+
                 if (num_max_size > 0)
                 {
                     float max_size = max_sizes[k];
@@ -116,6 +131,16 @@ int PriorBox::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
                     box[3] = (center_y + box_h * 0.5f) / image_h;
 
                     box += 4;
+
+                    if (denser_prior_boxes)
+                    {
+                        box[0] = (center_x - box_w * 0.5f) / image_w;
+                        box[1] = (center_offset_y - box_h * 0.5f) / image_h;
+                        box[2] = (center_x + box_w * 0.5f) / image_w;
+                        box[3] = (center_offset_y + box_h * 0.5f) / image_h;
+
+                        box += 4;
+                    }
                 }
 
                 // all aspect_ratios
@@ -133,6 +158,16 @@ int PriorBox::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
 
                     box += 4;
 
+                    if (denser_prior_boxes)
+                    {
+                        box[0] = (center_x - box_w * 0.5f) / image_w;
+                        box[1] = (center_offset_y - box_h * 0.5f) / image_h;
+                        box[2] = (center_x + box_w * 0.5f) / image_w;
+                        box[3] = (center_offset_y + box_h * 0.5f) / image_h;
+
+                        box += 4;
+                    }
+
                     if (flip)
                     {
                         box[0] = (center_x - box_h * 0.5f) / image_h;
@@ -141,6 +176,16 @@ int PriorBox::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& to
                         box[3] = (center_y + box_w * 0.5f) / image_w;
 
                         box += 4;
+
+                        if (denser_prior_boxes)
+                        {
+                            box[0] = (center_x - box_h * 0.5f) / image_h;
+                            box[1] = (center_offset_y - box_w * 0.5f) / image_w;
+                            box[2] = (center_x + box_h * 0.5f) / image_h;
+                            box[3] = (center_offset_y + box_w * 0.5f) / image_w;
+
+                            box += 4;
+                        }
                     }
                 }
             }

@@ -769,6 +769,8 @@ message DetectionOutputParameter {
   optional float visualize_threshold = 11;
   // If provided, save outputs to video file.
   optional string save_file = 12;
+
+  optional bool use_polygon = 13 [default = true];
 }
 
 message DropoutParameter {
@@ -1090,6 +1092,8 @@ message PriorBoxParameter {
 
   // Offset to the top left corner of each cell.
   optional float offset = 13 [default = 0.5];
+
+  optional bool denser_prior_boxes = 14 [default = false];
 }
 
 message PythonParameter {

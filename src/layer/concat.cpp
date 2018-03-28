@@ -35,6 +35,7 @@ int Concat::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_
 {
     int dims = bottom_blobs[0].dims;
     size_t elemsize = bottom_blobs[0].elemsize;
+    
 
     if (dims == 1) // axis == 0
     {
@@ -64,7 +65,7 @@ int Concat::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_
 
             outptr += w;
         }
-
+        
         return 0;
     }
 
@@ -98,7 +99,7 @@ int Concat::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_
 
             outptr += size;
         }
-
+        
         return 0;
     }
 
@@ -253,7 +254,7 @@ int Concat::forward(const std::vector<Mat>& bottom_blobs, std::vector<Mat>& top_
 
         return 0;
     }
-
+    
     return 0;
 }
 
