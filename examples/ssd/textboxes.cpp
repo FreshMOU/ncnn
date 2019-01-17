@@ -344,7 +344,7 @@ static int detect_textboxes(cv::Mat& raw_img, float show_threshold)
 
     const float mean_vals[3] = {104.f, 117.f, 123.f};
     const float norm_vals[3] = {1.0/104.f, 1.0/117.f, 1.0/123.f};
-    in.substract_mean_normalize(mean_vals, norm_vals);
+    in.substract_mean_normalize(mean_vals, NULL);
 
     ncnn::Mat out;
     
